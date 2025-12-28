@@ -18,7 +18,7 @@ import {
     VisibilityOff,
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '../redux/hooks';
-import { login, clearError } from '../redux/slices/authSlice';
+import { login, clearError, updateEmailConfirmed, updateUserPhone } from '../redux/slices/authSlice';
 import { fetchUserById } from '../redux/slices/profileSlice';
 import axios from 'axios';
 
@@ -76,23 +76,48 @@ export function LoginPage() {
                             return normalized;
                         };
 
+                        const phoneFromProfile = userProfile.phoneNumber
+                            ? normalizePhoneNumber(userProfile.phoneNumber)
+                            : undefined;
+
+                        const emailConfirmed = userProfile.emailConfirmed !== undefined
+                            ? userProfile.emailConfirmed
+                            : (parsedUser.emailConfirmed || false);
+
                         const updatedUser = {
                             ...parsedUser,
-                            phoneNumber: userProfile.phoneNumber ? normalizePhoneNumber(userProfile.phoneNumber) : parsedUser.phoneNumber,
-                            phone: userProfile.phoneNumber ? normalizePhoneNumber(userProfile.phoneNumber) : parsedUser.phone,
-                            name: userProfile.name || parsedUser.name,
-                            email: userProfile.email || parsedUser.email
+                            ...(phoneFromProfile && {
+                                phoneNumber: phoneFromProfile,
+                                phone: phoneFromProfile
+                            }),
+                            ...(userProfile.name && { name: userProfile.name }),
+                            ...(userProfile.email && { email: userProfile.email }),
+                            emailConfirmed: emailConfirmed,
+                            ...(userProfile.id && { id: userProfile.id }),
+                            ...(userProfile.role && { role: userProfile.role })
                         };
 
+                        console.log('LoginPage - Updated user with phone:', updatedUser);
                         localStorage.setItem('user', JSON.stringify(updatedUser));
+
+                        if (phoneFromProfile) {
+                            console.log('LoginPage - Dispatching updateUserPhone:', phoneFromProfile);
+                            dispatch(updateUserPhone(phoneFromProfile));
+                        }
+
+                        if (userProfile.emailConfirmed !== undefined) {
+                            dispatch(updateEmailConfirmed(userProfile.emailConfirmed));
+                        }
                     }
 
                 } catch (profileError) {
+                    console.error('LoginPage - Error fetching profile:', profileError);
                 } finally {
                     setIsFetchingProfile(false);
                 }
             }
         } catch (loginError) {
+            console.error('LoginPage - Login error:', loginError);
         }
     };
 

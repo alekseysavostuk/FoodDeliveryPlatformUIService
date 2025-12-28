@@ -33,7 +33,7 @@ const normalizePhoneNumber = (phone: string): string => {
 };
 
 const validatePhoneNumber = (value: string) => {
-    if (!value.trim()) return { isValid: true, error: '' };
+    if (!value.trim()) return { isValid: false, error: 'Номер телефона обязателен' };
 
     const normalizedPhone = normalizePhoneNumber(value);
     const regex = /^375(29|25|33|44)\d{7}$/;
@@ -45,6 +45,39 @@ const validatePhoneNumber = (value: string) => {
         };
     }
     return { isValid: true, error: '' };
+};
+
+const applyPhoneMask = (value: string): string => {
+    const cleaned = value.replace(/\D/g, '');
+
+    if (cleaned.length === 0) return '';
+
+    let displayValue = cleaned;
+    if (cleaned.startsWith('80') && cleaned.length === 11) {
+        displayValue = '375' + cleaned.substring(2);
+    }
+
+    if (displayValue.startsWith('375') && displayValue.length >= 12) {
+        const operator = displayValue.substring(3, 5);
+        let formatted = `+375 (${operator}`;
+
+        if (displayValue.length > 5) {
+            const part1 = displayValue.substring(5, 8);
+            formatted += `) ${part1}`;
+        }
+        if (displayValue.length > 8) {
+            const part2 = displayValue.substring(8, 10);
+            formatted += `-${part2}`;
+        }
+        if (displayValue.length > 10) {
+            const part3 = displayValue.substring(10, 12);
+            formatted += `-${part3}`;
+        }
+
+        return formatted;
+    }
+
+    return value;
 };
 
 export function RegisterPage() {
@@ -76,13 +109,14 @@ export function RegisterPage() {
 
     const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
-        setPhone(value);
+        const formattedValue = applyPhoneMask(value);
+        setPhone(formattedValue);
 
-        if (value.trim()) {
-            const validation = validatePhoneNumber(value);
+        if (formattedValue.trim()) {
+            const validation = validatePhoneNumber(formattedValue);
             setPhoneError(validation.error);
         } else {
-            setPhoneError('');
+            setPhoneError('Номер телефона обязателен');
         }
     };
 
@@ -102,6 +136,25 @@ export function RegisterPage() {
             return;
         }
 
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            setValidationError('Некорректный email');
+            return;
+        }
+
+        if (!phone.trim()) {
+            setPhoneError('Номер телефона обязателен');
+            setValidationError('Номер телефона обязателен для регистрации');
+            return;
+        }
+
+        const phoneValidation = validatePhoneNumber(phone);
+        if (!phoneValidation.isValid) {
+            setPhoneError(phoneValidation.error);
+            setValidationError('Исправьте ошибки в поле телефона');
+            return;
+        }
+
         if (password !== confirmPassword) {
             setValidationError('Пароли не совпадают');
             return;
@@ -112,27 +165,12 @@ export function RegisterPage() {
             return;
         }
 
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            setValidationError('Некорректный email');
-            return;
-        }
-
-        if (phone.trim()) {
-            const phoneValidation = validatePhoneNumber(phone);
-            if (!phoneValidation.isValid) {
-                setPhoneError(phoneValidation.error);
-                setValidationError('Исправьте ошибки в поле телефона');
-                return;
-            }
-        }
-
         try {
             await dispatch(register({
                 name,
                 email,
                 password,
-                phoneNumber: phone.trim() || undefined
+                phoneNumber: phone.trim()
             })).unwrap();
 
             navigate('/login');
@@ -174,6 +212,8 @@ export function RegisterPage() {
                         onChange={(e) => setName(e.target.value)}
                         sx={{ mb: 2 }}
                         autoComplete="name"
+                        helperText="Только буквы"
+                        error={validationError.includes('Имя')}
                     />
 
                     <TextField
@@ -185,14 +225,15 @@ export function RegisterPage() {
                         onChange={(e) => setEmail(e.target.value)}
                         sx={{ mb: 2 }}
                         autoComplete="email"
+                        error={validationError.includes('email')}
                     />
 
-                    {/* ДОБАВЛЯЕМ ПОЛЕ ТЕЛЕФОНА */}
                     <TextField
-                        label="Номер телефона (необязательно)"
+                        label="Номер телефона *"
                         value={phone}
                         onChange={handlePhoneChange}
                         fullWidth
+                        required
                         placeholder="+375 (29) 123-45-67"
                         sx={{ mb: 2 }}
                         error={!!phoneError}
@@ -208,6 +249,7 @@ export function RegisterPage() {
                         sx={{ mb: 2 }}
                         inputProps={{ minLength: 6 }}
                         autoComplete="new-password"
+                        helperText="Минимум 6 символов"
                         InputProps={{
                             endAdornment: (
                                 <InputAdornment position="end">

@@ -299,6 +299,12 @@ const authSlice = createSlice({
                 localStorage.setItem('user', JSON.stringify(state.user));
             }
         },
+        updateEmailConfirmed: (state, action: PayloadAction<boolean>) => {
+            if (state.user) {
+                state.user.emailConfirmed = action.payload;
+                localStorage.setItem('user', JSON.stringify(state.user));
+            }
+        },
         restoreUserFromStorage: (state) => {
             const userStr = localStorage.getItem('user');
             const accessToken = localStorage.getItem('accessToken');
@@ -374,6 +380,11 @@ const authSlice = createSlice({
             .addCase(confirmEmail.fulfilled, (state) => {
                 state.loading = false;
                 state.error = null;
+
+                if (state.user) {
+                    state.user.emailConfirmed = true;
+                    localStorage.setItem('user', JSON.stringify(state.user));
+                }
             })
             .addCase(confirmEmail.rejected, (state, action) => {
                 if (action.payload !== 'CANCELLED') {
@@ -428,6 +439,9 @@ const authSlice = createSlice({
                         const normalizedPhone = normalizePhoneNumber(action.payload.phoneNumber);
                         state.user.phoneNumber = normalizedPhone;
                     }
+                    if (action.payload.emailConfirmed !== undefined) {
+                        state.user.emailConfirmed = action.payload.emailConfirmed;
+                    }
                     localStorage.setItem('user', JSON.stringify(state.user));
                 }
             });
@@ -440,6 +454,7 @@ export const {
     clearRegistrationStatus,
     updateUserName,
     updateUserPhone,
+    updateEmailConfirmed,
     restoreUserFromStorage
 } = authSlice.actions;
 
