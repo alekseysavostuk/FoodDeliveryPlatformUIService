@@ -26,12 +26,13 @@ import {
     Edit,
     LocationOn,
     Person,
-    Phone as PhoneIcon,
     Add,
     Delete,
     Save,
     Home,
     Warning,
+    Visibility,
+    VisibilityOff,
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../redux/hooks';
 import {
@@ -197,12 +198,17 @@ export function ProfilePage() {
     });
 
     const [passwordDialog, setPasswordDialog] = useState(false);
+    const [showOldPassword, setShowOldPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [passwordForm, setPasswordForm] = useState({
         oldPassword: '',
         newPassword: '',
         confirmPassword: '',
     });
+
     const [deleteDialog, setDeleteDialog] = useState(false);
+    const [showDeletePassword, setShowDeletePassword] = useState(false);
     const [deleteConfirmation, setDeleteConfirmation] = useState('');
     const [deletePassword, setDeletePassword] = useState('');
     const [deleteError, setDeleteError] = useState('');
@@ -557,6 +563,9 @@ export function ProfilePage() {
 
             setPasswordDialog(false);
             setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
+            setShowOldPassword(false);
+            setShowNewPassword(false);
+            setShowConfirmPassword(false);
             setSuccessMessage('Пароль успешно изменен');
         } catch (err: any) {
             setSuccessMessage(err.message || 'Ошибка смены пароля');
@@ -614,6 +623,26 @@ export function ProfilePage() {
         setAddressErrors(prev => ({ ...prev, street: !value ? 'Обязательное поле' : '' }));
     };
 
+    const handleClickShowOldPassword = () => {
+        setShowOldPassword(!showOldPassword);
+    };
+
+    const handleClickShowNewPassword = () => {
+        setShowNewPassword(!showNewPassword);
+    };
+
+    const handleClickShowConfirmPassword = () => {
+        setShowConfirmPassword(!showConfirmPassword);
+    };
+
+    const handleClickShowDeletePassword = () => {
+        setShowDeletePassword(!showDeletePassword);
+    };
+
+    const handleMouseDownPassword = (e: React.MouseEvent<HTMLButtonElement>) => {
+        e.preventDefault();
+    };
+
     return (
         <Container maxWidth="lg" sx={{ py: 4 }}>
             <Snackbar
@@ -664,7 +693,7 @@ export function ProfilePage() {
                                     fullWidth
                                     disabled={loading}
                                     error={!!nameError}
-                                    helperText={nameError || 'Только буквы разрешены'}
+
                                 />
                                 <TextField
                                     label="Телефон"
@@ -674,14 +703,6 @@ export function ProfilePage() {
                                     disabled={loading}
                                     placeholder="+375 (29) 123-45-67"
                                     error={!!phoneError}
-                                    helperText={phoneError || 'Формат: 375XXXXXXXXX (12 цифр, код оператора 29,25,33,44). Оставьте пустым, если не хотите указывать телефон.'}
-                                    InputProps={{
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <PhoneIcon />
-                                            </InputAdornment>
-                                        ),
-                                    }}
                                 />
                                 <TextField
                                     label="Email"
@@ -836,6 +857,7 @@ export function ProfilePage() {
                                         setDeleteDialog(true);
                                         setDeleteConfirmation('');
                                         setDeletePassword('');
+                                        setShowDeletePassword(false);
                                         setDeleteError('');
                                     }}
                                     disabled={loading}
@@ -926,32 +948,79 @@ export function ProfilePage() {
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
                         <TextField
                             label="Текущий пароль"
-                            type="password"
+                            type={showOldPassword ? 'text' : 'password'}
                             value={passwordForm.oldPassword}
                             onChange={(e) => setPasswordForm({...passwordForm, oldPassword: e.target.value})}
                             fullWidth
                             required
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            aria-label="toggle password visibility"
+                                            onClick={handleClickShowOldPassword}
+                                            onMouseDown={handleMouseDownPassword}
+                                            edge="end"
+                                        >
+                                            {showOldPassword ? <VisibilityOff /> : <Visibility />}
+                                        </IconButton>
+                                    </InputAdornment>
+                                ),
+                            }}
                         />
                         <TextField
                             label="Новый пароль"
-                            type="password"
+                            type={showNewPassword ? 'text' : 'password'}
                             value={passwordForm.newPassword}
                             onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
                             fullWidth
                             required
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            aria-label="toggle password visibility"
+                                            onClick={handleClickShowNewPassword}
+                                            onMouseDown={handleMouseDownPassword}
+                                            edge="end"
+                                        >
+                                            {showNewPassword ? <VisibilityOff /> : <Visibility />}
+                                        </IconButton>
+                                    </InputAdornment>
+                                ),
+                            }}
                         />
                         <TextField
                             label="Подтвердите новый пароль"
-                            type="password"
+                            type={showConfirmPassword ? 'text' : 'password'}
                             value={passwordForm.confirmPassword}
                             onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
                             fullWidth
                             required
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            aria-label="toggle password visibility"
+                                            onClick={handleClickShowConfirmPassword}
+                                            onMouseDown={handleMouseDownPassword}
+                                            edge="end"
+                                        >
+                                            {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                                        </IconButton>
+                                    </InputAdornment>
+                                ),
+                            }}
                         />
                     </Box>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setPasswordDialog(false)}>Отмена</Button>
+                    <Button onClick={() => {
+                        setPasswordDialog(false);
+                        setShowOldPassword(false);
+                        setShowNewPassword(false);
+                        setShowConfirmPassword(false);
+                    }}>Отмена</Button>
                     <Button
                         onClick={handleChangePassword}
                         variant="contained"
@@ -1024,7 +1093,7 @@ export function ProfilePage() {
 
                     <TextField
                         label="Введите ваш пароль"
-                        type="password"
+                        type={showDeletePassword ? 'text' : 'password'}
                         value={deletePassword}
                         onChange={(e) => {
                             setDeletePassword(e.target.value);
@@ -1034,6 +1103,14 @@ export function ProfilePage() {
                         InputProps={{
                             endAdornment: (
                                 <InputAdornment position="end">
+                                    <IconButton
+                                        aria-label="toggle password visibility"
+                                        onClick={handleClickShowDeletePassword}
+                                        onMouseDown={handleMouseDownPassword}
+                                        edge="end"
+                                    >
+                                        {showDeletePassword ? <VisibilityOff /> : <Visibility />}
+                                    </IconButton>
                                     <Warning color="error" />
                                 </InputAdornment>
                             ),
