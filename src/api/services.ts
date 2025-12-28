@@ -61,8 +61,8 @@ export const authAPI = {
         return userApi.post('/auth/refresh', { refreshToken: token }, options);
     },
 
-    register: (name: string, email: string, password: string, options?: RequestOptions) => {
-        return userApi.post('/auth/register', { name, email, password }, options);
+    register: (name: string, phoneNumber: string, email: string, password: string, options?: RequestOptions) => {
+        return userApi.post('/auth/register', { name, phoneNumber, email, password }, options);
     },
 
     confirmEmail: (token: string, email: string, options?: RequestOptions) => {
@@ -83,7 +83,7 @@ export const authAPI = {
 };
 
 export const profileAPI = {
-    updateProfile: (userData: { id: string; name: string }, options?: RequestOptions) => {
+    updateProfile: (userData: { id: string; name: string; phoneNumber?: string }, options?: RequestOptions) => {
         return userApi.put(`/users`, userData, options);
     },
 

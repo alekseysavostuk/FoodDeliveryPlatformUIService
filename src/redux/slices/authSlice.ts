@@ -8,6 +8,7 @@ interface User {
     id: string;
     email: string;
     name: string;
+    phoneNumber?: string;
     role: 'USER' | 'ADMIN';
     emailConfirmed?: boolean;
 }
@@ -76,13 +77,31 @@ export const extractRoleFromToken = (decodedToken: any): 'USER' | 'ADMIN' => {
     return 'USER';
 };
 
+const normalizePhoneNumber = (phone: string | undefined): string | undefined => {
+    if (!phone) return undefined;
+
+    let normalized = phone.replaceAll(/\D/g, '');
+    if (normalized.startsWith('80') && normalized.length === 11) {
+        normalized = '375' + normalized.substring(2);
+    }
+    if (normalized.startsWith('+')) {
+        normalized = normalized.substring(1);
+    }
+    return normalized;
+};
+
 const createUserFromToken = (decodedToken: any, email?: string, responseData?: any): User => {
     const role = extractRoleFromToken(decodedToken);
+
+    const phoneNumber = normalizePhoneNumber(
+        responseData?.phoneNumber || decodedToken.phoneNumber
+    );
 
     return {
         id: decodedToken.id || decodedToken.sub || responseData?.id || '',
         email: email || decodedToken.email || '',
         name: responseData?.name || decodedToken.name || email?.split('@')[0] || 'User',
+        phoneNumber: phoneNumber,
         role: role,
         emailConfirmed: responseData?.emailConfirmed || false,
     };
@@ -179,20 +198,31 @@ export const register = createAsyncThunk(
                name,
                email,
                password,
+               phoneNumber,
                cancelToken
            }: {
-        name: string;
         email: string;
-        password: string
+        name: string;
+        password: string;
+        phoneNumber?: string;
     } & WithCancelToken, { rejectWithValue }) => {
         try {
-            const response = await authAPI.register(name, email, password, { cancelToken });
+            const normalizedPhone = phoneNumber ? normalizePhoneNumber(phoneNumber) || "" : "";
+
+            const response = await authAPI.register(
+                name,
+                normalizedPhone,
+                email,
+                password,
+                { cancelToken }
+            );
 
             return {
                 success: response.data.success,
                 message: response.data.message,
                 needEmailConfirmation: response.data.needEmailConfirmation || false,
-                userId: response.data.userId
+                userId: response.data.userId,
+                phoneNumber: normalizedPhone
             };
         } catch (error: any) {
             if (axios.isCancel(error)) {
@@ -262,6 +292,13 @@ const authSlice = createSlice({
                 localStorage.setItem('user', JSON.stringify(state.user));
             }
         },
+        updateUserPhone: (state, action: PayloadAction<string>) => {
+            if (state.user) {
+                const normalizedPhone = normalizePhoneNumber(action.payload);
+                state.user.phoneNumber = normalizedPhone;
+                localStorage.setItem('user', JSON.stringify(state.user));
+            }
+        },
         restoreUserFromStorage: (state) => {
             const userStr = localStorage.getItem('user');
             const accessToken = localStorage.getItem('accessToken');
@@ -275,6 +312,9 @@ const authSlice = createSlice({
 
                     if (userStr) {
                         const parsedUser = JSON.parse(userStr) as User;
+                        if (parsedUser.phoneNumber) {
+                            parsedUser.phoneNumber = normalizePhoneNumber(parsedUser.phoneNumber);
+                        }
                         parsedUser.role = extractRoleFromToken(decodedToken);
                         state.user = parsedUser;
                     } else {
@@ -384,11 +424,23 @@ const authSlice = createSlice({
             .addCase(updateProfile.fulfilled, (state, action) => {
                 if (state.user && state.user.id === action.payload.id) {
                     state.user.name = action.payload.name;
+                    if (action.payload.phoneNumber !== undefined) {
+                        const normalizedPhone = normalizePhoneNumber(action.payload.phoneNumber);
+                        state.user.phoneNumber = normalizedPhone;
+                    }
                     localStorage.setItem('user', JSON.stringify(state.user));
                 }
             });
     },
 });
 
-export const { logout, clearError, clearRegistrationStatus, updateUserName, restoreUserFromStorage } = authSlice.actions;
+export const {
+    logout,
+    clearError,
+    clearRegistrationStatus,
+    updateUserName,
+    updateUserPhone,
+    restoreUserFromStorage
+} = authSlice.actions;
+
 export default authSlice.reducer;

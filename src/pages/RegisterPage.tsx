@@ -20,6 +20,33 @@ import {
 import { useAppDispatch, useAppSelector } from '../redux/hooks';
 import { register, clearError } from '../redux/slices/authSlice';
 
+const normalizePhoneNumber = (phone: string): string => {
+    if (!phone) return '';
+    let normalized = phone.replaceAll(/\D/g, '');
+    if (normalized.startsWith('80') && normalized.length === 11) {
+        normalized = '375' + normalized.substring(2);
+    }
+    if (normalized.startsWith('+')) {
+        normalized = normalized.substring(1);
+    }
+    return normalized;
+};
+
+const validatePhoneNumber = (value: string) => {
+    if (!value.trim()) return { isValid: true, error: '' };
+
+    const normalizedPhone = normalizePhoneNumber(value);
+    const regex = /^375(29|25|33|44)\d{7}$/;
+
+    if (!regex.test(normalizedPhone)) {
+        return {
+            isValid: false,
+            error: 'Формат: 375XXXXXXXXX (12 цифр, код оператора 29,25,33,44)'
+        };
+    }
+    return { isValid: true, error: '' };
+};
+
 export function RegisterPage() {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
@@ -29,6 +56,8 @@ export function RegisterPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [phone, setPhone] = useState('');
+    const [phoneError, setPhoneError] = useState('');
     const [validationError, setValidationError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -45,9 +74,22 @@ export function RegisterPage() {
         };
     }, [dispatch]);
 
+    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setPhone(value);
+
+        if (value.trim()) {
+            const validation = validatePhoneNumber(value);
+            setPhoneError(validation.error);
+        } else {
+            setPhoneError('');
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setValidationError('');
+        setPhoneError('');
 
         const nameRegex = /^[\p{L}]+$/u;
         if (!name.trim()) {
@@ -76,8 +118,26 @@ export function RegisterPage() {
             return;
         }
 
-        navigate('/login');
-        dispatch(register({ name, email, password }));
+        if (phone.trim()) {
+            const phoneValidation = validatePhoneNumber(phone);
+            if (!phoneValidation.isValid) {
+                setPhoneError(phoneValidation.error);
+                setValidationError('Исправьте ошибки в поле телефона');
+                return;
+            }
+        }
+
+        try {
+            await dispatch(register({
+                name,
+                email,
+                password,
+                phoneNumber: phone.trim() || undefined
+            })).unwrap();
+
+            navigate('/login');
+        } catch (err) {
+        }
     };
 
     const handleClickShowPassword = () => {
@@ -125,6 +185,17 @@ export function RegisterPage() {
                         onChange={(e) => setEmail(e.target.value)}
                         sx={{ mb: 2 }}
                         autoComplete="email"
+                    />
+
+                    {/* ДОБАВЛЯЕМ ПОЛЕ ТЕЛЕФОНА */}
+                    <TextField
+                        label="Номер телефона (необязательно)"
+                        value={phone}
+                        onChange={handlePhoneChange}
+                        fullWidth
+                        placeholder="+375 (29) 123-45-67"
+                        sx={{ mb: 2 }}
+                        error={!!phoneError}
                     />
 
                     <TextField
@@ -181,7 +252,7 @@ export function RegisterPage() {
                         variant="contained"
                         fullWidth
                         size="large"
-                        disabled={loading}
+                        disabled={loading || !!phoneError}
                         sx={{ mb: 2 }}
                     >
                         {loading ? <CircularProgress size={24} /> : 'Зарегистрироваться'}

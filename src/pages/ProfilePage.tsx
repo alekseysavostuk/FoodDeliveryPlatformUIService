@@ -26,6 +26,7 @@ import {
     Edit,
     LocationOn,
     Person,
+    Phone as PhoneIcon,
     Add,
     Delete,
     Save,
@@ -42,7 +43,7 @@ import {
     changePassword,
     deleteUser,
 } from '../redux/slices/profileSlice';
-import { logout as authLogout } from '../redux/slices/authSlice';
+import { logout as authLogout, updateUserPhone } from '../redux/slices/authSlice';
 import axios from "axios";
 
 const loadedAddressUsers = new Set<string>();
@@ -53,6 +54,85 @@ const validateName = (value: string) => {
         isValid: regex.test(value),
         error: !regex.test(value) ? 'Только буквы разрешены' : ''
     };
+};
+
+const normalizePhoneNumber = (phone: string): string => {
+    if (!phone) return '';
+    let normalized = phone.replaceAll(/\D/g, '');
+    if (normalized.startsWith('80') && normalized.length === 11) {
+        normalized = '375' + normalized.substring(2);
+    }
+    if (normalized.startsWith('+')) {
+        normalized = normalized.substring(1);
+    }
+    return normalized;
+};
+
+const validatePhoneNumber = (value: string) => {
+    if (!value.trim()) return { isValid: true, error: '' };
+
+    const normalizedPhone = normalizePhoneNumber(value);
+    const regex = /^375(29|25|33|44)\d{7}$/;
+
+    if (!regex.test(normalizedPhone)) {
+        return {
+            isValid: false,
+            error: 'Формат: 375XXXXXXXXX (12 цифр, код оператора 29,25,33,44)'
+        };
+    }
+    return { isValid: true, error: '' };
+};
+
+const getUserPhone = (user: any): string | undefined => {
+    return user?.phoneNumber || user?.phone || undefined;
+};
+
+const formatPhoneForDisplay = (phone: string | undefined): string => {
+    if (!phone) return 'Не указан';
+
+    const normalized = normalizePhoneNumber(phone);
+    if (normalized.length === 12 && normalized.startsWith('375')) {
+        const operator = normalized.substring(3, 5);
+        const part1 = normalized.substring(5, 8);
+        const part2 = normalized.substring(8, 10);
+        const part3 = normalized.substring(10, 12);
+        return `+375 (${operator}) ${part1}-${part2}-${part3}`;
+    }
+
+    return phone;
+};
+
+const applyPhoneMask = (value: string): string => {
+    const cleaned = value.replace(/\D/g, '');
+
+    if (cleaned.length === 0) return '';
+
+    let displayValue = cleaned;
+    if (cleaned.startsWith('80') && cleaned.length === 11) {
+        displayValue = '375' + cleaned.substring(2);
+    }
+
+    if (displayValue.startsWith('375') && displayValue.length >= 12) {
+        const operator = displayValue.substring(3, 5);
+        let formatted = `+375 (${operator}`;
+
+        if (displayValue.length > 5) {
+            const part1 = displayValue.substring(5, 8);
+            formatted += `) ${part1}`;
+        }
+        if (displayValue.length > 8) {
+            const part2 = displayValue.substring(8, 10);
+            formatted += `-${part2}`;
+        }
+        if (displayValue.length > 10) {
+            const part3 = displayValue.substring(10, 12);
+            formatted += `-${part3}`;
+        }
+
+        return formatted;
+    }
+
+    return value;
 };
 
 const validateCity = (value: string) => {
@@ -93,6 +173,9 @@ export function ProfilePage() {
     const [name, setName] = useState(user?.name || '');
     const [nameError, setNameError] = useState('');
 
+    const [phone, setPhone] = useState<string>('Не указан');
+    const [phoneError, setPhoneError] = useState('');
+
     const [addressDialog, setAddressDialog] = useState(false);
     const [isEditingAddress, setIsEditingAddress] = useState(false);
     const [currentAddressId, setCurrentAddressId] = useState<string | null>(null);
@@ -130,6 +213,61 @@ export function ProfilePage() {
     const mountedRef = useRef(true);
     const lastUserIdRef = useRef<string>('');
 
+    const getPhoneFromLocalStorage = (): string | undefined => {
+        try {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                const parsedUser = JSON.parse(userStr);
+                return parsedUser.phoneNumber || parsedUser.phone;
+            }
+        } catch (error) {
+            return undefined;
+        }
+        return undefined;
+    };
+
+    const syncPhoneToRedux = () => {
+        if (user && (!user.phoneNumber)) {
+            const phoneFromStorage = getPhoneFromLocalStorage();
+            if (phoneFromStorage) {
+                dispatch(updateUserPhone(phoneFromStorage));
+            }
+        }
+    };
+
+    useEffect(() => {
+        const phoneFromRedux = getUserPhone(user);
+        const phoneFromStorage = getPhoneFromLocalStorage();
+        let phoneToDisplay = 'Не указан';
+
+        if (phoneFromRedux) {
+            phoneToDisplay = formatPhoneForDisplay(phoneFromRedux);
+        } else if (phoneFromStorage) {
+            phoneToDisplay = formatPhoneForDisplay(phoneFromStorage);
+
+            if (user && phoneFromStorage) {
+                setTimeout(() => {
+                    syncPhoneToRedux();
+                }, 100);
+            }
+        }
+
+        setPhone(phoneToDisplay);
+        setName(user?.name || '');
+    }, []);
+
+    useEffect(() => {
+        const userPhone = getUserPhone(user);
+        setName(user?.name || '');
+
+        if (userPhone) {
+            const formattedPhone = formatPhoneForDisplay(userPhone);
+            if (phone !== formattedPhone && formattedPhone !== 'Не указан') {
+                setPhone(formattedPhone);
+            }
+        }
+    }, [user]);
+
     useEffect(() => {
         mountedRef.current = true;
 
@@ -159,7 +297,6 @@ export function ProfilePage() {
                     loadedAddressUsers.delete(user.id);
                     return;
                 }
-                console.error('Ошибка загрузки адресов:', error);
                 loadedAddressUsers.delete(user.id);
             }
         };
@@ -169,7 +306,7 @@ export function ProfilePage() {
         return () => {
             mountedRef.current = false;
         };
-    }, [dispatch, user?.id]);
+    }, [dispatch, user?.id, addresses.length]);
 
     useEffect(() => {
         return () => {
@@ -186,10 +323,15 @@ export function ProfilePage() {
     }, [user?.id]);
 
     const handleUpdateProfile = async () => {
-
         const nameValidation = validateName(name.trim());
         if (!nameValidation.isValid) {
             setNameError(nameValidation.error);
+            return;
+        }
+
+        const phoneValidation = validatePhoneNumber(phone);
+        if (!phoneValidation.isValid && phone.trim() && phone !== 'Не указан') {
+            setPhoneError(phoneValidation.error);
             return;
         }
 
@@ -199,22 +341,40 @@ export function ProfilePage() {
         }
 
         try {
+            const normalizedPhone = phone.trim() && phone !== 'Не указан'
+                ? normalizePhoneNumber(phone)
+                : '';
+
             await dispatch(updateProfile({
                 id: user.id,
-                name: name.trim()
+                name: name.trim(),
+                phoneNumber: normalizedPhone
             })).unwrap();
+
+            if (normalizedPhone) {
+                dispatch(updateUserPhone(normalizedPhone));
+            }
 
             const userData = localStorage.getItem('user');
             if (userData) {
-                const parsedUser = JSON.parse(userData);
-                parsedUser.name = name.trim();
-                localStorage.setItem('user', JSON.stringify(parsedUser));
+                try {
+                    const parsedUser = JSON.parse(userData);
+                    parsedUser.name = name.trim();
+                    parsedUser.phone = normalizedPhone;
+                    parsedUser.phoneNumber = normalizedPhone;
+                    localStorage.setItem('user', JSON.stringify(parsedUser));
+                } catch (e) {
+                }
             }
+
+            const formattedPhone = normalizedPhone ? formatPhoneForDisplay(normalizedPhone) : 'Не указан';
+            setPhone(formattedPhone);
 
             setEditMode(false);
             setSuccessMessage('Профиль успешно обновлен');
-        } catch {
-            setSuccessMessage('Ошибка обновления профиля');
+
+        } catch (err: any) {
+            setSuccessMessage(err.message || 'Ошибка обновления профиля');
         }
     };
 
@@ -294,7 +454,6 @@ export function ProfilePage() {
     };
 
     const handleSaveAddress = async () => {
-
         const cityValidation = validateCity(addressForm.city);
         const stateValidation = validateState(addressForm.state);
         const zipValidation = validateZip(addressForm.zip);
@@ -415,6 +574,19 @@ export function ProfilePage() {
         setNameError(validation.error);
     };
 
+    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const rawValue = e.target.value;
+        const formattedValue = applyPhoneMask(rawValue);
+        setPhone(formattedValue);
+
+        if (formattedValue.trim() && formattedValue !== 'Не указан') {
+            const validation = validatePhoneNumber(formattedValue);
+            setPhoneError(validation.error);
+        } else {
+            setPhoneError('');
+        }
+    };
+
     const handleCityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         setAddressForm(prev => ({ ...prev, city: value }));
@@ -471,7 +643,10 @@ export function ProfilePage() {
                                 sx={{ ml: 'auto' }}
                                 onClick={() => {
                                     setName(user?.name || '');
+                                    const currentPhone = phone === 'Не указан' ? '' : phone;
+                                    setPhone(currentPhone);
                                     setNameError('');
+                                    setPhoneError('');
                                     setEditMode(!editMode);
                                 }}
                                 disabled={loading}
@@ -492,6 +667,23 @@ export function ProfilePage() {
                                     helperText={nameError || 'Только буквы разрешены'}
                                 />
                                 <TextField
+                                    label="Телефон"
+                                    value={phone === 'Не указан' ? '' : phone}
+                                    onChange={handlePhoneChange}
+                                    fullWidth
+                                    disabled={loading}
+                                    placeholder="+375 (29) 123-45-67"
+                                    error={!!phoneError}
+                                    helperText={phoneError || 'Формат: 375XXXXXXXXX (12 цифр, код оператора 29,25,33,44). Оставьте пустым, если не хотите указывать телефон.'}
+                                    InputProps={{
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <PhoneIcon />
+                                            </InputAdornment>
+                                        ),
+                                    }}
+                                />
+                                <TextField
                                     label="Email"
                                     value={user?.email}
                                     type="email"
@@ -503,7 +695,7 @@ export function ProfilePage() {
                                         variant="contained"
                                         startIcon={loading ? <CircularProgress size={20} /> : <Save />}
                                         onClick={handleUpdateProfile}
-                                        disabled={loading || !name.trim() || !!nameError}
+                                        disabled={loading || !name.trim() || !!nameError || !!phoneError}
                                     >
                                         Сохранить
                                     </Button>
@@ -512,6 +704,9 @@ export function ProfilePage() {
                                         onClick={() => {
                                             setEditMode(false);
                                             setNameError('');
+                                            setPhoneError('');
+                                            const userPhone = getUserPhone(user);
+                                            setPhone(userPhone ? formatPhoneForDisplay(userPhone) : 'Не указан');
                                         }}
                                         disabled={loading}
                                     >
@@ -522,6 +717,9 @@ export function ProfilePage() {
                         ) : (
                             <Box>
                                 <Typography><strong>Имя:</strong> {user?.name}</Typography>
+                                <Typography>
+                                    <strong>Телефон:</strong> {phone}
+                                </Typography>
                                 <Typography><strong>Email:</strong> {user?.email}</Typography>
                             </Box>
                         )}

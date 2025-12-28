@@ -19,6 +19,8 @@ import {
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '../redux/hooks';
 import { login, clearError } from '../redux/slices/authSlice';
+import { fetchUserById } from '../redux/slices/profileSlice';
+import axios from 'axios';
 
 export function LoginPage() {
     const dispatch = useAppDispatch();
@@ -28,6 +30,7 @@ export function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [isFetchingProfile, setIsFetchingProfile] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -43,7 +46,54 @@ export function LoginPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        dispatch(login({ email, password }));
+
+        try {
+            const loginResult = await dispatch(login({ email, password })).unwrap();
+
+            if (loginResult?.user?.id) {
+                setIsFetchingProfile(true);
+
+                try {
+                    const source = axios.CancelToken.source();
+                    const userProfile = await dispatch(fetchUserById({
+                        id: loginResult.user.id,
+                        cancelToken: source.token
+                    })).unwrap();
+
+                    const userData = localStorage.getItem('user');
+                    if (userData) {
+                        const parsedUser = JSON.parse(userData);
+
+                        const normalizePhoneNumber = (phone: string): string => {
+                            if (!phone) return '';
+                            let normalized = phone.replaceAll(/\D/g, '');
+                            if (normalized.startsWith('80') && normalized.length === 11) {
+                                normalized = '375' + normalized.substring(2);
+                            }
+                            if (normalized.startsWith('+')) {
+                                normalized = normalized.substring(1);
+                            }
+                            return normalized;
+                        };
+
+                        const updatedUser = {
+                            ...parsedUser,
+                            phoneNumber: userProfile.phoneNumber ? normalizePhoneNumber(userProfile.phoneNumber) : parsedUser.phoneNumber,
+                            phone: userProfile.phoneNumber ? normalizePhoneNumber(userProfile.phoneNumber) : parsedUser.phone,
+                            name: userProfile.name || parsedUser.name,
+                            email: userProfile.email || parsedUser.email
+                        };
+
+                        localStorage.setItem('user', JSON.stringify(updatedUser));
+                    }
+
+                } catch (profileError) {
+                } finally {
+                    setIsFetchingProfile(false);
+                }
+            }
+        } catch (loginError) {
+        }
     };
 
     const handleClickShowPassword = () => {
@@ -53,6 +103,8 @@ export function LoginPage() {
     const handleMouseDownPassword = (e: React.MouseEvent<HTMLButtonElement>) => {
         e.preventDefault();
     };
+
+    const isLoading = loading || isFetchingProfile;
 
     return (
         <Container maxWidth="sm" sx={{ py: 8 }}>
@@ -109,11 +161,19 @@ export function LoginPage() {
                         variant="contained"
                         fullWidth
                         size="large"
-                        disabled={loading}
+                        disabled={isLoading}
                         sx={{ mb: 2 }}
                     >
-                        {loading ? <CircularProgress size={24} /> : 'Войти'}
+                        {isLoading ? (
+                            <CircularProgress size={24} sx={{ color: 'white' }} />
+                        ) : 'Войти'}
                     </Button>
+
+                    {isFetchingProfile && (
+                        <Alert severity="info" sx={{ mb: 2 }}>
+                            Загрузка профиля...
+                        </Alert>
+                    )}
 
                     <Box sx={{ textAlign: 'center' }}>
                         <Typography variant="body2" color="text.secondary">

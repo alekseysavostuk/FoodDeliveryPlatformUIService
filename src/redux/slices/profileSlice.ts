@@ -6,6 +6,7 @@ export interface User {
     id: string;
     email: string;
     name: string;
+    phoneNumber: string;
     role: 'USER' | 'ADMIN' | 'MANAGER';
     active: boolean;
     emailConfirmed: boolean;
@@ -17,6 +18,7 @@ interface ProfileState {
     userProfile: {
         name: string;
         email: string;
+        phoneNumber?: string;
     } | null;
     addresses: Address[];
     loading: boolean;
@@ -41,6 +43,41 @@ const initialState: ProfileState = {
 interface WithCancelToken {
     cancelToken?: import('axios').CancelToken;
 }
+
+const validatePhoneNumber = (phone: string): { isValid: boolean; error?: string } => {
+    const regex = /^375(29|25|33|44)\d{7}$/;
+    if (!phone.trim()) {
+        return { isValid: false, error: 'Номер телефона обязателен' };
+    }
+    if (!regex.test(phone)) {
+        return {
+            isValid: false,
+            error: 'Формат: 375XXXXXXXXX (12 цифр, код оператора 29,25,33,44)'
+        };
+    }
+    return { isValid: true };
+};
+
+const normalizePhoneNumber = (phone: string): string => {
+    if (!phone) return '';
+
+    let normalized = phone.replaceAll(/\D/g, '');
+
+    if (normalized.startsWith('80') && normalized.length === 11) {
+        normalized = '375' + normalized.substring(2);
+    }
+
+    if (normalized.startsWith('+')) {
+        normalized = normalized.substring(1);
+    }
+
+    return normalized;
+};
+
+const formatPhoneDisplay = (phone: string): string => {
+    if (!phone) return '';
+    return `+${phone.substring(0, 3)} (${phone.substring(3, 5)}) ${phone.substring(5, 8)}-${phone.substring(8, 10)}-${phone.substring(10, 12)}`;
+};
 
 export const fetchAddresses = createAsyncThunk(
     'profile/fetchAddresses',
@@ -89,9 +126,21 @@ export const fetchUserById = createAsyncThunk(
 
 export const updateProfile = createAsyncThunk(
     'profile/update',
-    async (userData: { id: string; name: string }, { rejectWithValue }) => {
+    async (userData: { id: string; name: string, phoneNumber?: string }, { rejectWithValue }) => {
         try {
-            const response = await profileAPI.updateProfile(userData);
+            const normalizedData = {
+                ...userData,
+                phoneNumber: userData.phoneNumber ? normalizePhoneNumber(userData.phoneNumber) : undefined
+            };
+
+            if (normalizedData.phoneNumber) {
+                const validation = validatePhoneNumber(normalizedData.phoneNumber);
+                if (!validation.isValid) {
+                    return rejectWithValue(validation.error || 'Неверный формат номера телефона');
+                }
+            }
+
+            const response = await profileAPI.updateProfile(normalizedData);
             return response.data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data?.message || 'Ошибка обновления профиля');
@@ -187,9 +236,25 @@ export const deleteAddress = createAsyncThunk(
 
 export const updateUserAdmin = createAsyncThunk(
     'profile/updateUserAdmin',
-    async ({ id, userData }: { id: string; userData: Partial<User> }, { rejectWithValue }) => {
+    async ({ id, userData }: {
+        id: string;
+        userData: Partial<User>
+    }, { rejectWithValue }) => {
         try {
-            const response = await profileAPI.updateProfile({ id, name: userData.name || '' });
+            const normalizedPhone = userData.phoneNumber ? normalizePhoneNumber(userData.phoneNumber) : undefined;
+
+            if (normalizedPhone) {
+                const validation = validatePhoneNumber(normalizedPhone);
+                if (!validation.isValid) {
+                    return rejectWithValue(validation.error || 'Неверный формат номера телефона');
+                }
+            }
+
+            const response = await profileAPI.updateProfile({
+                id,
+                name: userData.name || '',
+                phoneNumber: normalizedPhone
+            });
             return response.data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data?.message || 'Ошибка обновления пользователя');
@@ -223,6 +288,21 @@ const profileSlice = createSlice({
         clearUsersList: (state) => {
             state.allUsers = [];
         },
+        updatePhoneNumber: (state, action) => {
+            if (state.userProfile) {
+                state.userProfile.phoneNumber = action.payload;
+            }
+        },
+        normalizeUserPhone: (state, action: { payload: string }) => {
+            const userId = action.payload;
+            const user = state.allUsers.find(u => u.id === userId);
+            if (user && user.phoneNumber) {
+                user.phoneNumber = normalizePhoneNumber(user.phoneNumber);
+            }
+            if (state.selectedUser?.id === userId && state.selectedUser.phoneNumber) {
+                state.selectedUser.phoneNumber = normalizePhoneNumber(state.selectedUser.phoneNumber);
+            }
+        },
     },
     extraReducers: (builder) => {
         builder
@@ -233,6 +313,9 @@ const profileSlice = createSlice({
             .addCase(updateProfile.fulfilled, (state, action) => {
                 state.loading = false;
                 state.userProfile = action.payload;
+                if (state.userProfile?.phoneNumber) {
+                    state.userProfile.phoneNumber = normalizePhoneNumber(state.userProfile.phoneNumber);
+                }
             })
             .addCase(updateProfile.rejected, (state, action) => {
                 state.loading = false;
@@ -269,7 +352,10 @@ const profileSlice = createSlice({
             })
             .addCase(fetchAllUsers.fulfilled, (state, action) => {
                 state.usersLoading = false;
-                state.allUsers = Array.isArray(action.payload) ? action.payload : [];
+                state.allUsers = (Array.isArray(action.payload) ? action.payload : []).map(user => ({
+                    ...user,
+                    phoneNumber: user.phoneNumber ? normalizePhoneNumber(user.phoneNumber) : user.phoneNumber
+                }));
             })
             .addCase(fetchAllUsers.rejected, (state, action) => {
                 if (action.payload !== 'CANCELLED') {
@@ -283,7 +369,10 @@ const profileSlice = createSlice({
             })
             .addCase(fetchUserById.fulfilled, (state, action) => {
                 state.usersLoading = false;
-                state.selectedUser = action.payload;
+                state.selectedUser = {
+                    ...action.payload,
+                    phoneNumber: action.payload.phoneNumber ? normalizePhoneNumber(action.payload.phoneNumber) : action.payload.phoneNumber
+                };
             })
             .addCase(fetchUserById.rejected, (state, action) => {
                 if (action.payload !== 'CANCELLED') {
@@ -299,16 +388,30 @@ const profileSlice = createSlice({
             })
             .addCase(updateUserAdmin.fulfilled, (state, action) => {
                 const updatedUser = action.payload;
-                const index = state.allUsers.findIndex(user => user.id === updatedUser.id);
+                const normalizedUser = {
+                    ...updatedUser,
+                    phoneNumber: updatedUser.phoneNumber ? normalizePhoneNumber(updatedUser.phoneNumber) : updatedUser.phoneNumber
+                };
+
+                const index = state.allUsers.findIndex(user => user.id === normalizedUser.id);
                 if (index !== -1) {
-                    state.allUsers[index] = { ...state.allUsers[index], ...updatedUser };
+                    state.allUsers[index] = { ...state.allUsers[index], ...normalizedUser };
                 }
-                if (state.selectedUser?.id === updatedUser.id) {
-                    state.selectedUser = { ...state.selectedUser, ...updatedUser };
+                if (state.selectedUser?.id === normalizedUser.id) {
+                    state.selectedUser = { ...state.selectedUser, ...normalizedUser };
                 }
             });
     },
 });
 
-export const { clearProfileError, clearSelectedUser, clearUsersList } = profileSlice.actions;
+export { validatePhoneNumber, normalizePhoneNumber, formatPhoneDisplay };
+
+export const {
+    clearProfileError,
+    clearSelectedUser,
+    clearUsersList,
+    updatePhoneNumber,
+    normalizeUserPhone
+} = profileSlice.actions;
+
 export default profileSlice.reducer;

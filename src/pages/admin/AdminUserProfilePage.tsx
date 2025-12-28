@@ -26,6 +26,7 @@ import {
     LocationOn as LocationIcon,
     Home as HomeIcon,
     ShoppingBag,
+    Phone as PhoneIcon,
 } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../../redux/hooks';
 import {
@@ -33,6 +34,33 @@ import {
     fetchAddresses,
 } from '../../redux/slices/profileSlice';
 import axios from "axios";
+
+const formatPhoneForDisplay = (phone: string | undefined): string => {
+    if (!phone) return 'Не указан';
+
+    const normalizePhoneNumber = (phone: string): string => {
+        if (!phone) return '';
+        let normalized = phone.replaceAll(/\D/g, '');
+        if (normalized.startsWith('80') && normalized.length === 11) {
+            normalized = '375' + normalized.substring(2);
+        }
+        if (normalized.startsWith('+')) {
+            normalized = normalized.substring(1);
+        }
+        return normalized;
+    };
+
+    const normalized = normalizePhoneNumber(phone);
+    if (normalized.length === 12 && normalized.startsWith('375')) {
+        const operator = normalized.substring(3, 5);
+        const part1 = normalized.substring(5, 8);
+        const part2 = normalized.substring(8, 10);
+        const part3 = normalized.substring(10, 12);
+        return `+375 (${operator}) ${part1}-${part2}-${part3}`;
+    }
+
+    return phone;
+};
 
 export function AdminUserProfilePage() {
     const { id } = useParams<{ id: string }>();
@@ -223,6 +251,18 @@ export function AdminUserProfilePage() {
                                         </Typography>
                                         <Typography variant="body1">
                                             {selectedUser.email}
+                                        </Typography>
+                                    </Box>
+
+                                    <Divider />
+
+                                    <Box>
+                                        <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                            <PhoneIcon fontSize="small" />
+                                            Телефон
+                                        </Typography>
+                                        <Typography variant="body1">
+                                            {formatPhoneForDisplay(selectedUser.phoneNumber)}
                                         </Typography>
                                     </Box>
                                 </Box>
