@@ -36,6 +36,31 @@ const CART_STORAGE_KEY = 'cart';
 const CART_RESTAURANT_KEY = 'cartRestaurantId';
 const CART_DELIVERY_KEY = 'cartDeliveryAddress';
 
+const validateCity = (value: string) => {
+    const regex = /^[\p{L}]+$/u;
+    return {
+        isValid: regex.test(value),
+        error: !regex.test(value) ? 'Только буквы разрешены' : ''
+    };
+};
+
+const validateState = (value: string) => {
+    if (!value.trim()) return { isValid: true, error: '' };
+    const regex = /^[\p{L}]+$/u;
+    return {
+        isValid: regex.test(value),
+        error: !regex.test(value) ? 'Только буквы разрешены' : ''
+    };
+};
+
+const validateZip = (value: string) => {
+    const regex = /^[\p{L}\p{N}\s\-]+$/u;
+    return {
+        isValid: regex.test(value),
+        error: !regex.test(value) ? 'Разрешены только буквы, цифры, пробелы и дефисы' : ''
+    };
+};
+
 export function CartPage() {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
@@ -54,7 +79,7 @@ export function CartPage() {
         city: '',
         zip: '',
         state: '',
-        country: '',
+        country: 'Беларусь',
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -134,9 +159,28 @@ export function CartPage() {
 
     const validateNewAddress = () => {
         const newErrors: Record<string, string> = {};
+
         if (!newAddress.street.trim()) newErrors.street = 'Укажите улицу';
-        if (!newAddress.city.trim()) newErrors.city = 'Укажите город';
-        if (!newAddress.zip.trim()) newErrors.zip = 'Укажите индекс';
+
+        const cityValidation = validateCity(newAddress.city);
+        if (!newAddress.city.trim()) {
+            newErrors.city = 'Укажите город';
+        } else if (cityValidation.error) {
+            newErrors.city = cityValidation.error;
+        }
+
+        const zipValidation = validateZip(newAddress.zip);
+        if (!newAddress.zip.trim()) {
+            newErrors.zip = 'Укажите индекс';
+        } else if (zipValidation.error) {
+            newErrors.zip = zipValidation.error;
+        }
+
+        const stateValidation = validateState(newAddress.state);
+        if (stateValidation.error) {
+            newErrors.state = stateValidation.error;
+        }
+
         if (!newAddress.country.trim()) newErrors.country = 'Укажите страну';
 
         setErrors(newErrors);
@@ -157,7 +201,7 @@ export function CartPage() {
                 city: '',
                 zip: '',
                 state: '',
-                country: '',
+                country: 'Беларусь',
             });
             setErrors({});
             setShowNewAddressForm(false);
@@ -258,6 +302,33 @@ export function CartPage() {
 
     const handleAddressSelect = (addressId: string) => {
         setSelectedAddressId(addressId);
+    };
+
+    const handleCityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setNewAddress(prev => ({ ...prev, city: value }));
+        const validation = validateCity(value);
+        setErrors(prev => ({ ...prev, city: validation.error }));
+    };
+
+    const handleStateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setNewAddress(prev => ({ ...prev, state: value }));
+        const validation = validateState(value);
+        setErrors(prev => ({ ...prev, state: validation.error }));
+    };
+
+    const handleZipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setNewAddress(prev => ({ ...prev, zip: value }));
+        const validation = validateZip(value);
+        setErrors(prev => ({ ...prev, zip: validation.error }));
+    };
+
+    const handleStreetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setNewAddress(prev => ({ ...prev, street: value }));
+        setErrors(prev => ({ ...prev, street: !value ? 'Укажите улицу' : '' }));
     };
 
     if (items.length === 0) {
@@ -507,7 +578,7 @@ export function CartPage() {
                             label="Улица, дом, квартира"
                             fullWidth
                             value={newAddress.street}
-                            onChange={(e) => setNewAddress({ ...newAddress, street: e.target.value })}
+                            onChange={handleStreetChange}
                             error={!!errors.street}
                             helperText={errors.street}
                             required
@@ -519,9 +590,8 @@ export function CartPage() {
                                     label="Город"
                                     fullWidth
                                     value={newAddress.city}
-                                    onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
+                                    onChange={handleCityChange}
                                     error={!!errors.city}
-                                    helperText={errors.city}
                                     required
                                 />
                             </Grid>
@@ -530,9 +600,8 @@ export function CartPage() {
                                     label="Индекс"
                                     fullWidth
                                     value={newAddress.zip}
-                                    onChange={(e) => setNewAddress({ ...newAddress, zip: e.target.value })}
+                                    onChange={handleZipChange}
                                     error={!!errors.zip}
-                                    helperText={errors.zip}
                                     required
                                 />
                             </Grid>
@@ -542,17 +611,15 @@ export function CartPage() {
                             label="Область/Регион (необязательно)"
                             fullWidth
                             value={newAddress.state}
-                            onChange={(e) => setNewAddress({ ...newAddress, state: e.target.value })}
+                            onChange={handleStateChange}
+                            error={!!errors.state}
                         />
 
                         <TextField
                             label="Страна"
                             fullWidth
                             value={newAddress.country}
-                            onChange={(e) => setNewAddress({ ...newAddress, country: e.target.value })}
-                            error={!!errors.country}
-                            helperText={errors.country}
-                            required
+                            disabled
                         />
                     </Box>
                 </DialogContent>

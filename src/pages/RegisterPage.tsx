@@ -49,6 +49,17 @@ export function RegisterPage() {
         e.preventDefault();
         setValidationError('');
 
+        const nameRegex = /^[\p{L}]+$/u;
+        if (!name.trim()) {
+            setValidationError('Имя обязательно для заполнения');
+            return;
+        }
+
+        if (!nameRegex.test(name)) {
+            setValidationError('Имя должно содержать только буквы');
+            return;
+        }
+
         if (password !== confirmPassword) {
             setValidationError('Пароли не совпадают');
             return;

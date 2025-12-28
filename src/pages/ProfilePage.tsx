@@ -47,6 +47,39 @@ import axios from "axios";
 
 const loadedAddressUsers = new Set<string>();
 
+const validateName = (value: string) => {
+    const regex = /^[\p{L}]+$/u;
+    return {
+        isValid: regex.test(value),
+        error: !regex.test(value) ? 'Только буквы разрешены' : ''
+    };
+};
+
+const validateCity = (value: string) => {
+    const regex = /^[\p{L}]+$/u;
+    return {
+        isValid: regex.test(value),
+        error: !regex.test(value) ? 'Только буквы разрешены' : ''
+    };
+};
+
+const validateState = (value: string) => {
+    if (!value.trim()) return { isValid: true, error: '' };
+    const regex = /^[\p{L}]+$/u;
+    return {
+        isValid: regex.test(value),
+        error: !regex.test(value) ? 'Только буквы разрешены' : ''
+    };
+};
+
+const validateZip = (value: string) => {
+    const regex = /^[\p{L}\p{N}\s\-]+$/u;
+    return {
+        isValid: regex.test(value),
+        error: !regex.test(value) ? 'Разрешены только буквы, цифры, пробелы и дефисы' : ''
+    };
+};
+
 export function ProfilePage() {
     const dispatch = useAppDispatch();
     const { user } = useAppSelector(state => state.auth);
@@ -58,16 +91,28 @@ export function ProfilePage() {
 
     const [editMode, setEditMode] = useState(false);
     const [name, setName] = useState(user?.name || '');
+    const [nameError, setNameError] = useState('');
+
     const [addressDialog, setAddressDialog] = useState(false);
     const [isEditingAddress, setIsEditingAddress] = useState(false);
     const [currentAddressId, setCurrentAddressId] = useState<string | null>(null);
+
     const [addressForm, setAddressForm] = useState({
+        street: '',
+        city: '',
+        zip: '',
+        state: '',
+        country: 'Беларусь',
+    });
+
+    const [addressErrors, setAddressErrors] = useState({
         street: '',
         city: '',
         zip: '',
         state: '',
         country: '',
     });
+
     const [passwordDialog, setPasswordDialog] = useState(false);
     const [passwordForm, setPasswordForm] = useState({
         oldPassword: '',
@@ -141,6 +186,13 @@ export function ProfilePage() {
     }, [user?.id]);
 
     const handleUpdateProfile = async () => {
+
+        const nameValidation = validateName(name.trim());
+        if (!nameValidation.isValid) {
+            setNameError(nameValidation.error);
+            return;
+        }
+
         if (!user?.id || !name.trim()) {
             setSuccessMessage('Имя не может быть пустым');
             return;
@@ -227,6 +279,13 @@ export function ProfilePage() {
             city: '',
             zip: '',
             state: '',
+            country: 'Беларусь',
+        });
+        setAddressErrors({
+            street: '',
+            city: '',
+            zip: '',
+            state: '',
             country: '',
         });
         setIsEditingAddress(false);
@@ -235,8 +294,27 @@ export function ProfilePage() {
     };
 
     const handleSaveAddress = async () => {
-        if (!addressForm.street || !addressForm.city || !addressForm.zip || !addressForm.country) {
+
+        const cityValidation = validateCity(addressForm.city);
+        const stateValidation = validateState(addressForm.state);
+        const zipValidation = validateZip(addressForm.zip);
+
+        const newErrors = {
+            street: !addressForm.street ? 'Обязательное поле' : '',
+            city: cityValidation.error || (!addressForm.city ? 'Обязательное поле' : ''),
+            zip: zipValidation.error || (!addressForm.zip ? 'Обязательное поле' : ''),
+            state: stateValidation.error,
+            country: '',
+        };
+
+        setAddressErrors(newErrors);
+
+        if (!addressForm.street || !addressForm.city || !addressForm.zip) {
             setSuccessMessage('Заполните все обязательные поля');
+            return;
+        }
+
+        if (cityValidation.error || stateValidation.error || zipValidation.error) {
             return;
         }
 
@@ -269,7 +347,14 @@ export function ProfilePage() {
             city: address.city,
             zip: address.zip,
             state: address.state || '',
-            country: address.country,
+            country: 'Беларусь',
+        });
+        setAddressErrors({
+            street: '',
+            city: '',
+            zip: '',
+            state: '',
+            country: '',
         });
         setIsEditingAddress(true);
         setCurrentAddressId(address.id);
@@ -323,6 +408,40 @@ export function ProfilePage() {
         return `${address.street}, ${address.city}, ${address.zip}${address.state ? `, ${address.state}` : ''}, ${address.country}`;
     };
 
+    const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setName(value);
+        const validation = validateName(value);
+        setNameError(validation.error);
+    };
+
+    const handleCityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setAddressForm(prev => ({ ...prev, city: value }));
+        const validation = validateCity(value);
+        setAddressErrors(prev => ({ ...prev, city: validation.error }));
+    };
+
+    const handleStateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setAddressForm(prev => ({ ...prev, state: value }));
+        const validation = validateState(value);
+        setAddressErrors(prev => ({ ...prev, state: validation.error }));
+    };
+
+    const handleZipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setAddressForm(prev => ({ ...prev, zip: value }));
+        const validation = validateZip(value);
+        setAddressErrors(prev => ({ ...prev, zip: validation.error }));
+    };
+
+    const handleStreetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setAddressForm(prev => ({ ...prev, street: value }));
+        setAddressErrors(prev => ({ ...prev, street: !value ? 'Обязательное поле' : '' }));
+    };
+
     return (
         <Container maxWidth="lg" sx={{ py: 4 }}>
             <Snackbar
@@ -352,6 +471,7 @@ export function ProfilePage() {
                                 sx={{ ml: 'auto' }}
                                 onClick={() => {
                                     setName(user?.name || '');
+                                    setNameError('');
                                     setEditMode(!editMode);
                                 }}
                                 disabled={loading}
@@ -365,9 +485,11 @@ export function ProfilePage() {
                                 <TextField
                                     label="Имя"
                                     value={name}
-                                    onChange={(e) => setName(e.target.value)}
+                                    onChange={handleNameChange}
                                     fullWidth
                                     disabled={loading}
+                                    error={!!nameError}
+                                    helperText={nameError || 'Только буквы разрешены'}
                                 />
                                 <TextField
                                     label="Email"
@@ -381,13 +503,16 @@ export function ProfilePage() {
                                         variant="contained"
                                         startIcon={loading ? <CircularProgress size={20} /> : <Save />}
                                         onClick={handleUpdateProfile}
-                                        disabled={loading || !name.trim()}
+                                        disabled={loading || !name.trim() || !!nameError}
                                     >
                                         Сохранить
                                     </Button>
                                     <Button
                                         variant="outlined"
-                                        onClick={() => setEditMode(false)}
+                                        onClick={() => {
+                                            setEditMode(false);
+                                            setNameError('');
+                                        }}
                                         disabled={loading}
                                     >
                                         Отмена
@@ -534,42 +659,46 @@ export function ProfilePage() {
                         <TextField
                             label="Улица, дом, квартира"
                             value={addressForm.street}
-                            onChange={(e) => setAddressForm({...addressForm, street: e.target.value})}
+                            onChange={handleStreetChange}
                             fullWidth
                             required
+                            error={!!addressErrors.street}
+                            helperText={addressErrors.street}
                         />
                         <Grid container spacing={2}>
                             <Grid item xs={6}>
                                 <TextField
                                     label="Город"
                                     value={addressForm.city}
-                                    onChange={(e) => setAddressForm({...addressForm, city: e.target.value})}
+                                    onChange={handleCityChange}
                                     fullWidth
                                     required
+                                    error={!!addressErrors.city}
                                 />
                             </Grid>
                             <Grid item xs={6}>
                                 <TextField
                                     label="Индекс"
                                     value={addressForm.zip}
-                                    onChange={(e) => setAddressForm({...addressForm, zip: e.target.value})}
+                                    onChange={handleZipChange}
                                     fullWidth
                                     required
+                                    error={!!addressErrors.zip}
                                 />
                             </Grid>
                         </Grid>
                         <TextField
                             label="Область"
                             value={addressForm.state}
-                            onChange={(e) => setAddressForm({...addressForm, state: e.target.value})}
+                            onChange={handleStateChange}
                             fullWidth
+                            error={!!addressErrors.state}
                         />
                         <TextField
                             label="Страна"
                             value={addressForm.country}
-                            onChange={(e) => setAddressForm({...addressForm, country: e.target.value})}
                             fullWidth
-                            required
+                            disabled
                         />
                     </Box>
                 </DialogContent>
@@ -578,7 +707,15 @@ export function ProfilePage() {
                     <Button
                         onClick={handleSaveAddress}
                         variant="contained"
-                        disabled={!addressForm.street || !addressForm.city || !addressForm.zip || !addressForm.country}
+                        disabled={
+                            !addressForm.street ||
+                            !addressForm.city ||
+                            !addressForm.zip ||
+                            !!addressErrors.street ||
+                            !!addressErrors.city ||
+                            !!addressErrors.zip ||
+                            !!addressErrors.state
+                        }
                     >
                         {isEditingAddress ? 'Сохранить' : 'Добавить'}
                     </Button>
