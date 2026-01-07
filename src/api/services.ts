@@ -73,6 +73,10 @@ export const authAPI = {
         return userApi.post('/auth/resend-confirmation', { email }, options);
     },
 
+    restore: (email: string, options?: RequestOptions) => {
+        return userApi.post('/auth/restore', { email }, options);
+    },
+
     logout: (options?: RequestOptions) => {
         const refreshToken = localStorage.getItem('refreshToken');
         localStorage.removeItem('accessToken');

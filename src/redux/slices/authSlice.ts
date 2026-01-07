@@ -21,6 +21,9 @@ interface AuthState {
     error: string | null;
     registrationSuccess: boolean;
     registrationMessage: null;
+    restoreLoading: boolean;
+    restoreSuccess: boolean;
+    restoreMessage: string | null;
 }
 
 const initialState: AuthState = {
@@ -31,6 +34,9 @@ const initialState: AuthState = {
     error: null,
     registrationSuccess: false,
     registrationMessage: null,
+    restoreLoading: false,
+    restoreSuccess: false,
+    restoreMessage: null,
 };
 
 interface WithCancelToken {
@@ -106,6 +112,30 @@ const createUserFromToken = (decodedToken: any, email?: string, responseData?: a
         emailConfirmed: responseData?.emailConfirmed || false,
     };
 };
+
+// Новое асинхронное действие для восстановления аккаунта
+export const restoreAccount = createAsyncThunk(
+    'auth/restoreAccount',
+    async ({ email, cancelToken }: { email: string } & WithCancelToken, { rejectWithValue }) => {
+        try {
+            const response = await authAPI.restore(email, { cancelToken });
+            return {
+                success: response.data.success || false,
+                message: response.data.message || 'Инструкции по восстановлению отправлены на email',
+                email: email
+            };
+        } catch (error: any) {
+            if (axios.isCancel(error)) {
+                return rejectWithValue('CANCELLED');
+            }
+            return rejectWithValue(
+                error.response?.data?.message ||
+                error.response?.data?.error ||
+                'Ошибка восстановления аккаунта'
+            );
+        }
+    }
+);
 
 export const login = createAsyncThunk(
     'auth/login',
@@ -286,6 +316,11 @@ const authSlice = createSlice({
             state.registrationSuccess = false;
             state.registrationMessage = null;
         },
+        clearRestoreStatus: (state) => {
+            state.restoreLoading = false;
+            state.restoreSuccess = false;
+            state.restoreMessage = null;
+        },
         updateUserName: (state, action: PayloadAction<string>) => {
             if (state.user) {
                 state.user.name = action.payload;
@@ -335,6 +370,28 @@ const authSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
+            // Обработка восстановления аккаунта
+            .addCase(restoreAccount.pending, (state) => {
+                state.restoreLoading = true;
+                state.restoreSuccess = false;
+                state.restoreMessage = null;
+                state.error = null;
+            })
+            .addCase(restoreAccount.fulfilled, (state, action) => {
+                state.restoreLoading = false;
+                state.restoreSuccess = action.payload.success;
+                state.restoreMessage = action.payload.message;
+                state.error = null;
+            })
+            .addCase(restoreAccount.rejected, (state, action) => {
+                if (action.payload !== 'CANCELLED') {
+                    state.restoreLoading = false;
+                    state.restoreSuccess = false;
+                    state.restoreMessage = action.payload as string;
+                    state.error = action.payload as string;
+                }
+            })
+
             .addCase(login.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -452,6 +509,7 @@ export const {
     logout,
     clearError,
     clearRegistrationStatus,
+    clearRestoreStatus,
     updateUserName,
     updateUserPhone,
     updateEmailConfirmed,

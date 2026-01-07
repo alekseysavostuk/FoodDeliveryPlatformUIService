@@ -97,11 +97,9 @@ export function LoginPage() {
                             ...(userProfile.role && { role: userProfile.role })
                         };
 
-                        console.log('LoginPage - Updated user with phone:', updatedUser);
                         localStorage.setItem('user', JSON.stringify(updatedUser));
 
                         if (phoneFromProfile) {
-                            console.log('LoginPage - Dispatching updateUserPhone:', phoneFromProfile);
                             dispatch(updateUserPhone(phoneFromProfile));
                         }
 
@@ -111,13 +109,11 @@ export function LoginPage() {
                     }
 
                 } catch (profileError) {
-                    console.error('LoginPage - Error fetching profile:', profileError);
                 } finally {
                     setIsFetchingProfile(false);
                 }
             }
         } catch (loginError) {
-            console.error('LoginPage - Login error:', loginError);
         }
     };
 

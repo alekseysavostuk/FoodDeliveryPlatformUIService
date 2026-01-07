@@ -9,6 +9,7 @@ import { theme } from './theme/theme';
 import { Layout } from './components/Layout/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
+import { RestorePage } from './pages/RestorePage';
 import { RegisterPage } from './pages/RegisterPage';
 import { RestaurantListPage } from './pages/RestaurantListPage';
 import { MenuPage } from './pages/MenuPage';
@@ -40,6 +41,7 @@ export default function App() {
                         <Route path="/" element={<Layout />}>
                             <Route index element={<RestaurantListPage />} />
                             <Route path="login" element={<LoginPage />} />
+                            <Route path="restore" element={<RestorePage />} />
                             <Route path="register" element={<RegisterPage />} />
                             <Route path="restaurant/:id" element={<MenuPage />} />
 

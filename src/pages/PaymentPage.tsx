@@ -35,7 +35,7 @@ import { createPayment, fetchOrderById } from '../redux/slices/ordersSlice';
 import type { AppDispatch, RootState } from '../redux/store';
 import axios from "axios";
 
-const DELIVERY_FEE = 149;
+const DELIVERY_FEE = 49;
 
 interface OrderData {
     orderId?: string;
@@ -153,14 +153,6 @@ export function PaymentPage() {
         }
     }, [currentOrder, id]);
 
-    const calculateFinalTotal = () => {
-        if (!orderData) return 0;
-        const subtotal = orderData.subtotal || orderData.total || 0;
-        return subtotal + DELIVERY_FEE;
-    };
-
-    const finalTotal = calculateFinalTotal();
-
     const handlePayment = async () => {
         if (!id) {
             alert('ID заказа не найден');
@@ -271,6 +263,8 @@ export function PaymentPage() {
     const displayOrderId = orderData.orderId?.substring(0, 8) || id?.substring(0, 8) || 'N/A';
     const displayTotal = orderData.total?.toFixed(2) || '0.00';
 
+    const displaySubtotal = ((orderData.total || 0) - DELIVERY_FEE).toFixed(2);
+
     return (
         <Container maxWidth="md" sx={{ py: 4 }}>
             <Button
@@ -303,8 +297,9 @@ export function PaymentPage() {
                                 <List disablePadding>
                                     <ListItem disableGutters sx={{ py: 0.5 }}>
                                         <ListItemText primary="Стоимость товаров" />
+                                        {/* МЕНЯЕМ ЭТУ СТРОЧКУ: было {displayTotal}, стало {displaySubtotal} */}
                                         <Typography variant="body2">
-                                            {displayTotal} ₽
+                                            {displaySubtotal} ₽
                                         </Typography>
                                     </ListItem>
 
@@ -333,7 +328,7 @@ export function PaymentPage() {
                                             }
                                         />
                                         <Typography variant="h5" color="primary" fontWeight="bold">
-                                            {finalTotal.toFixed(2)} ₽
+                                            {displayTotal} ₽
                                         </Typography>
                                     </ListItem>
                                 </List>
@@ -386,7 +381,7 @@ export function PaymentPage() {
                                         Сумма к оплате:
                                     </Typography>
                                     <Typography variant="h6" color="primary">
-                                        {finalTotal.toFixed(2)} ₽
+                                        {displayTotal} ₽
                                     </Typography>
                                 </Box>
                             </Box>
@@ -400,7 +395,7 @@ export function PaymentPage() {
                                 startIcon={paymentLoading ? <CircularProgress size={20} /> : <CheckCircle />}
                                 sx={{ mt: 2 }}
                             >
-                                {paymentLoading ? 'Обработка платежа...' : `Оплатить ${finalTotal.toFixed(2)} ₽`}
+                                {paymentLoading ? 'Обработка платежа...' : `Оплатить ${displayTotal} ₽`}
                             </Button>
 
                             <Typography variant="caption" color="text.secondary" sx={{ mt: 2, textAlign: 'center', display: 'block' }}>

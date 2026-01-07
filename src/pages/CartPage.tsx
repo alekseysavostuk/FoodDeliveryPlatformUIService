@@ -126,7 +126,7 @@ export function CartPage() {
     }, [addresses, selectedAddressId]);
 
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const deliveryFee = items.length > 0 ? 149 : 0;
+    const deliveryFee = items.length > 0 ? 49 : 0;
     const total = subtotal + deliveryFee;
 
     const getSelectedAddressText = () => {

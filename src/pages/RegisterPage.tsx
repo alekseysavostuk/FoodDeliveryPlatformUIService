@@ -212,7 +212,6 @@ export function RegisterPage() {
                         onChange={(e) => setName(e.target.value)}
                         sx={{ mb: 2 }}
                         autoComplete="name"
-                        helperText="Только буквы"
                         error={validationError.includes('Имя')}
                     />
 
@@ -249,7 +248,6 @@ export function RegisterPage() {
                         sx={{ mb: 2 }}
                         inputProps={{ minLength: 6 }}
                         autoComplete="new-password"
-                        helperText="Минимум 6 символов"
                         InputProps={{
                             endAdornment: (
                                 <InputAdornment position="end">
