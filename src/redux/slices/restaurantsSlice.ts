@@ -812,7 +812,7 @@ export const selectDishImages = (state: { restaurants: RestaurantsState }, dishI
 export const selectDishImageUrls = (state: { restaurants: RestaurantsState }, dishId: string) => {
     const images = state.restaurants.dishImages[dishId] || [];
     return images.map(imageName =>
-        `http://localhost:8082/api/v1/dishes/${dishId}/images/${encodeURIComponent(imageName)}`
+        `http://localhost/api/dishes/${dishId}/images/${encodeURIComponent(imageName)}`
     );
 };
 
@@ -836,14 +836,14 @@ export const selectRestaurantImages = (state: { restaurants: RestaurantsState },
 export const selectRestaurantImageUrls = (state: { restaurants: RestaurantsState }, restaurantId: string) => {
     const images = state.restaurants.restaurantImages[restaurantId] || [];
     return images.map(imageName =>
-        `http://localhost:8082/api/v1/restaurants/${restaurantId}/images/${encodeURIComponent(imageName)}`
+        `http://localhost/api/restaurants/${restaurantId}/images/${encodeURIComponent(imageName)}`
     );
 };
 
 export const selectFirstRestaurantImageUrl = (state: { restaurants: RestaurantsState }, restaurantId: string) => {
     const images = state.restaurants.restaurantImages[restaurantId];
     if (images && images.length > 0) {
-        return `http://localhost:8082/api/v1/restaurants/${restaurantId}/images/${encodeURIComponent(images[0])}`;
+        return `http://localhost/api/restaurants/${restaurantId}/images/${encodeURIComponent(images[0])}`;
     }
     return null;
 };
@@ -854,8 +854,9 @@ export const selectAllRestaurantImages = (state: { restaurants: RestaurantsState
 export const selectRestaurantImageLoading = (state: { restaurants: RestaurantsState }, restaurantId: string) =>
     state.restaurants.restaurantImageLoading[restaurantId] || false;
 
+// @ts-ignore
 export const getDishImageUrl = (dishId: string, imageName: string) => {
-    return `http://localhost:8082/api/v1/dishes/${dishId}/images/${encodeURIComponent(imageName)}`;
+    return `http://localhost/minio/${encodeURIComponent(imageName)}`;
 };
 
 export const getDishPreviewUrl = (dish: Dish) => {
@@ -865,13 +866,14 @@ export const getDishPreviewUrl = (dish: Dish) => {
     return null;
 };
 
+// @ts-ignore
 export const getRestaurantImageUrl = (restaurantId: string, imageName: string) => {
-    return `http://localhost:8082/api/v1/restaurants/${restaurantId}/images/${encodeURIComponent(imageName)}`;
+    return `http://localhost/minio/${encodeURIComponent(imageName)}`;
 };
 
 export const getRestaurantPreviewUrl = (restaurant: Restaurant) => {
     if (restaurant.images && restaurant.images.length > 0 && restaurant.id) {
-        return `http://localhost:8082/api/v1/restaurants/${restaurant.id}/images/${encodeURIComponent(restaurant.images[0])}`;
+        return `http://localhost/api/restaurants/${restaurant.id}/images/${encodeURIComponent(restaurant.images[0])}`;
     }
     return null;
 };

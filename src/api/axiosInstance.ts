@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-const API_USER_URL = 'http://localhost:8081/api/v1';
-const API_RESTAURANT_URL = 'http://localhost:8082/api/v1';
-const API_ORDER_URL = 'http://localhost:8083/api/v1';
+const API_USER_URL = import.meta.env.VITE_USER_API_URL;
+const API_RESTAURANT_URL = import.meta.env.VITE_RESTAURANT_API_URL;
+const API_ORDER_URL = import.meta.env.VITE_ORDER_API_URL;
 
 const commonConfig = {
     headers: {
